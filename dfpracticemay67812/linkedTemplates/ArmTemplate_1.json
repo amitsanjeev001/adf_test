@@ -1,0 +1,1520 @@
+{
+	"$schema": "http://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+	"contentVersion": "1.0.0.0",
+	"parameters": {
+		"factoryName": {
+			"type": "string",
+			"metadata": "Data Factory name",
+			"defaultValue": "dfpracticemay67812"
+		}
+	},
+	"variables": {
+		"factoryId": "[concat('Microsoft.DataFactory/factories/', parameters('factoryName'))]"
+	},
+	"resources": [
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_CHILD_INGESTION')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "PL_CHILD_LOGGING",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "PL_CHILD_LOGGING",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"run_id": {
+									"value": "@pipeline().RunId\n",
+									"type": "Expression"
+								},
+								"pipeline_name": "PL_CHILD_INGESTION\n",
+								"table_name": {
+									"value": "@pipeline().parameters.table_name\n",
+									"type": "Expression"
+								},
+								"status": "STARTED\n",
+								"rows_loaded": "0",
+								"error_message": "NULL"
+							}
+						}
+					},
+					{
+						"name": "COPY_DYNAMIC",
+						"type": "Copy",
+						"dependsOn": [
+							{
+								"activity": "PL_CHILD_LOGGING",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 3,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "DynamicRange",
+								"partitionSettings": {
+									"partitionUpperBound": "",
+									"partitionLowerBound": ""
+								}
+							},
+							"sink": {
+								"type": "DelimitedTextSink",
+								"storeSettings": {
+									"type": "AzureBlobFSWriteSettings"
+								},
+								"formatSettings": {
+									"type": "DelimitedTextWriteSettings",
+									"quoteAllText": true,
+									"fileExtension": ".txt"
+								}
+							},
+							"enableStaging": false,
+							"translator": {
+								"type": "TabularTranslator",
+								"typeConversion": true,
+								"typeConversionSettings": {
+									"allowDataTruncation": true,
+									"treatBooleanAsNumber": false
+								}
+							}
+						},
+						"inputs": [
+							{
+								"referenceName": "AzureSqlTable1",
+								"type": "DatasetReference",
+								"parameters": {
+									"TableName": "@pipeline().parameters.source_table"
+								}
+							}
+						],
+						"outputs": [
+							{
+								"referenceName": "DelimitedText1",
+								"type": "DatasetReference",
+								"parameters": {
+									"FileName": "@concat( pipeline().parameters.table_name, '_', formatDateTime(utcNow(),'yyyyMMddHHmmss'), '.csv' )",
+									"FolderLocation": "@pipeline().parameters.sink_path"
+								}
+							}
+						]
+					},
+					{
+						"name": "PL_CHILD_LOGGING2",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "COPY_DYNAMIC",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "PL_CHILD_LOGGING",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"run_id": {
+									"value": "@pipeline().RunId\n",
+									"type": "Expression"
+								},
+								"pipeline_name": "PL_CHILD_INGESTION\n",
+								"table_name": {
+									"value": "@pipeline().parameters.table_name\n",
+									"type": "Expression"
+								},
+								"status": "SUCCESS\n",
+								"rows_loaded": {
+									"value": "@activity('COPY_DYNAMIC').output.rowsCopied\n",
+									"type": "Expression"
+								},
+								"error_message": "NULL\n"
+							}
+						}
+					},
+					{
+						"name": "PL_CHILD_LOGGING2_copy1",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "COPY_DYNAMIC",
+								"dependencyConditions": [
+									"Failed"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "PL_CHILD_LOGGING",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"run_id": {
+									"value": "@pipeline().RunId\n",
+									"type": "Expression"
+								},
+								"pipeline_name": "PL_CHILD_INGESTION\n",
+								"table_name": {
+									"value": "@pipeline().parameters.table_name\n",
+									"type": "Expression"
+								},
+								"status": "Failed",
+								"rows_loaded": {
+									"value": "0",
+									"type": "Expression"
+								},
+								"error_message": {
+									"value": "@activity('COPY_DYNAMIC').error.message",
+									"type": "Expression"
+								}
+							}
+						}
+					},
+					{
+						"name": "PL_CHILD_ERROR_HANDLER",
+						"type": "ExecutePipeline",
+						"dependsOn": [
+							{
+								"activity": "COPY_DYNAMIC",
+								"dependencyConditions": [
+									"Failed"
+								]
+							}
+						],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "PL_CHILD_ERROR_HANDLER",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {
+								"pipeline_name": "PL_CHILD_INGESTION",
+								"table_name": {
+									"value": "@pipeline().parameters.table_name",
+									"type": "Expression"
+								},
+								"error_message": {
+									"value": "@activity('COPY_DYNAMIC').error.message",
+									"type": "Expression"
+								}
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"table_name": {
+						"type": "string"
+					},
+					"source_table": {
+						"type": "string"
+					},
+					"sink_path": {
+						"type": "string"
+					},
+					"load_type": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-05-30T14:52:21Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_CHILD_VALIDATION')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "LOOKUP_VALIDATE_TABLE",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": {
+									"value": "SELECT COUNT(*) AS cnt\nFROM INFORMATION_SCHEMA.TABLES\nWHERE TABLE_SCHEMA='dbo'\nAND TABLE_NAME =\nREPLACE('@{pipeline().parameters.source_table}','dbo.','')",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "AzureSqlControlTable",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						}
+					},
+					{
+						"name": "If Condition1",
+						"type": "IfCondition",
+						"dependsOn": [
+							{
+								"activity": "LOOKUP_VALIDATE_TABLE",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"expression": {
+								"value": "@greater(activity('LOOKUP_VALIDATE_TABLE').output.firstRow.cnt,0)",
+								"type": "Expression"
+							},
+							"ifFalseActivities": [
+								{
+									"name": "Fail1",
+									"type": "Fail",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"message": "Source table validation failed",
+										"errorCode": "fail"
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"table_name": {
+						"type": "string"
+					},
+					"source_table": {
+						"type": "string"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-05-26T16:42:06Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_FILE_VALIDATION')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "GM_File",
+						"type": "GetMetadata",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"dataset": {
+								"referenceName": "DelimitedText1",
+								"type": "DatasetReference",
+								"parameters": {
+									"FileName": "@pipeline().parameters.FileName",
+									"FolderLocation": "@pipeline().parameters.SourcePath"
+								}
+							},
+							"fieldList": [
+								"exists",
+								"size",
+								"lastModified"
+							],
+							"storeSettings": {
+								"type": "AzureBlobFSReadSettings",
+								"recursive": true,
+								"enablePartitionDiscovery": false
+							},
+							"formatSettings": {
+								"type": "DelimitedTextReadSettings"
+							}
+						}
+					},
+					{
+						"name": "IF_FILE_VALID",
+						"type": "IfCondition",
+						"dependsOn": [
+							{
+								"activity": "GM_File",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"expression": {
+								"value": "@and(\nactivity('GM_File').output.exists,\ngreater(\nactivity('GM_File').output.size,\n0\n)\n)",
+								"type": "Expression"
+							},
+							"ifFalseActivities": [
+								{
+									"name": "Fail1",
+									"type": "Fail",
+									"dependsOn": [],
+									"userProperties": [],
+									"typeProperties": {
+										"message": "File Missing Or Empty",
+										"errorCode": "''"
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"FileName": {
+						"type": "string"
+					},
+					"SourcePath": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "day4"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-06-13T09:09:21Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_GET_METADATA')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "LKP_METADATA",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": "SELECT *\nFROM metadata_table\nWHERE is_active=1",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "AzureSqlControlTable",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "Set variable1",
+						"type": "SetVariable",
+						"dependsOn": [
+							{
+								"activity": "LKP_METADATA",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "pipelineReturnValue",
+							"value": [
+								{
+									"key": "metadata",
+									"value": {
+										"type": "Expression",
+										"content": "@activity('LKP_METADATA').output.value"
+									}
+								}
+							],
+							"setSystemVariable": true
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"var": {
+						"type": "String"
+					}
+				},
+				"folder": {
+					"name": "day4"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-06-13T09:46:42Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_WAIT_FOR_FILE')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Until1",
+						"type": "Until",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"expression": {
+								"value": "@or(\nvariables('FileFound'),\ngreaterOrEquals(variables('Counter'),12)\n)",
+								"type": "Expression"
+							},
+							"activities": [
+								{
+									"name": "GM_Check_File",
+									"type": "GetMetadata",
+									"dependsOn": [],
+									"policy": {
+										"timeout": "0.12:00:00",
+										"retry": 0,
+										"retryIntervalInSeconds": 30,
+										"secureOutput": false,
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"dataset": {
+											"referenceName": "DelimitedText1",
+											"type": "DatasetReference",
+											"parameters": {
+												"FileName": "emp1.csv",
+												"FolderLocation": "source"
+											}
+										},
+										"fieldList": [
+											"exists"
+										],
+										"storeSettings": {
+											"type": "AzureBlobFSReadSettings",
+											"recursive": true,
+											"enablePartitionDiscovery": false
+										},
+										"formatSettings": {
+											"type": "DelimitedTextReadSettings"
+										}
+									}
+								},
+								{
+									"name": "If Condition1",
+									"type": "IfCondition",
+									"dependsOn": [
+										{
+											"activity": "GM_Check_File",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"userProperties": [],
+									"typeProperties": {
+										"expression": {
+											"value": "@activity('GM_Check_File').output.exists",
+											"type": "Expression"
+										},
+										"ifFalseActivities": [
+											{
+												"name": "Wait_5_Minutes",
+												"type": "Wait",
+												"dependsOn": [],
+												"userProperties": [],
+												"typeProperties": {
+													"waitTimeInSeconds": 300
+												}
+											},
+											{
+												"name": "Set variable2",
+												"type": "SetVariable",
+												"dependsOn": [],
+												"policy": {
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"variableName": "Counter_New",
+													"value": {
+														"value": "@add(variables('Counter'),1)",
+														"type": "Expression"
+													}
+												}
+											}
+										],
+										"ifTrueActivities": [
+											{
+												"name": "Set variable1",
+												"type": "SetVariable",
+												"dependsOn": [],
+												"policy": {
+													"secureOutput": false,
+													"secureInput": false
+												},
+												"userProperties": [],
+												"typeProperties": {
+													"variableName": "FileFound",
+													"value": {
+														"value": "@bool('true')",
+														"type": "Expression"
+													}
+												}
+											}
+										]
+									}
+								}
+							],
+							"timeout": "0.01:00:00"
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"FileFound": {
+						"type": "Boolean",
+						"defaultValue": false
+					},
+					"Counter": {
+						"type": "Integer"
+					},
+					"Counter_New": {
+						"type": "Integer"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-06-14T13:22:33Z"
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/AzureSqlTable2')]",
+			"type": "Microsoft.DataFactory/factories/datasets",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"linkedServiceName": {
+					"referenceName": "AzureSqlDatabase1",
+					"type": "LinkedServiceReference"
+				},
+				"annotations": [],
+				"type": "AzureSqlTable",
+				"schema": [],
+				"typeProperties": {}
+			},
+			"dependsOn": []
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_LOAD_DATA')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Switch1",
+						"type": "Switch",
+						"dependsOn": [],
+						"userProperties": [],
+						"typeProperties": {
+							"on": {
+								"value": "@pipeline().parameters.SourceType",
+								"type": "Expression"
+							},
+							"cases": [
+								{
+									"value": "SQL",
+									"activities": [
+										{
+											"name": "Lookup1",
+											"type": "Lookup",
+											"dependsOn": [],
+											"policy": {
+												"timeout": "0.12:00:00",
+												"retry": 0,
+												"retryIntervalInSeconds": 30,
+												"secureOutput": false,
+												"secureInput": false
+											},
+											"userProperties": [],
+											"typeProperties": {
+												"source": {
+													"type": "AzureSqlSource",
+													"sqlReaderQuery": {
+														"value": "SELECT watermark_value\nFROM watermark_table\nWHERE table_name=\n@{pipeline().parameters.TableName}",
+														"type": "Expression"
+													},
+													"queryTimeout": "02:00:00",
+													"partitionOption": "None"
+												},
+												"dataset": {
+													"referenceName": "AzureSqlControlTable",
+													"type": "DatasetReference",
+													"parameters": {}
+												},
+												"firstRowOnly": false
+											}
+										},
+										{
+											"name": "Copy data1",
+											"type": "Copy",
+											"dependsOn": [
+												{
+													"activity": "Lookup1",
+													"dependencyConditions": [
+														"Succeeded"
+													]
+												}
+											],
+											"policy": {
+												"timeout": "0.12:00:00",
+												"retry": 0,
+												"retryIntervalInSeconds": 30,
+												"secureOutput": false,
+												"secureInput": false
+											},
+											"userProperties": [],
+											"typeProperties": {
+												"source": {
+													"type": "AzureSqlSource",
+													"sqlReaderQuery": {
+														"value": "@if(\nequals(pipeline().parameters.LoadType,'FULL'),\n\nconcat(\n'SELECT * FROM dbo.',\npipeline().parameters.TableName\n),\n\nconcat(\n'SELECT * FROM dbo.',\npipeline().parameters.TableName,\n' WHERE modified_date > ''',\nactivity('Lookup1').output.firstRow.watermark_value,\n''''\n)\n)\n\n",
+														"type": "Expression"
+													},
+													"queryTimeout": "02:00:00",
+													"partitionOption": "None"
+												},
+												"sink": {
+													"type": "DelimitedTextSink",
+													"storeSettings": {
+														"type": "AzureBlobFSWriteSettings"
+													},
+													"formatSettings": {
+														"type": "DelimitedTextWriteSettings",
+														"quoteAllText": true,
+														"fileExtension": ".txt"
+													}
+												},
+												"enableStaging": false,
+												"translator": {
+													"type": "TabularTranslator",
+													"typeConversion": true,
+													"typeConversionSettings": {
+														"allowDataTruncation": true,
+														"treatBooleanAsNumber": false
+													}
+												}
+											},
+											"inputs": [
+												{
+													"referenceName": "AzureSqlControlTable",
+													"type": "DatasetReference",
+													"parameters": {}
+												}
+											],
+											"outputs": [
+												{
+													"referenceName": "DelimitedText1",
+													"type": "DatasetReference",
+													"parameters": {
+														"FileName": {
+															"value": "@split(pipeline().parameters.TargetPath,'/')[1]\n\n",
+															"type": "Expression"
+														},
+														"FolderLocation": {
+															"value": "@split(pipeline().parameters.TargetPath,'/')[0]",
+															"type": "Expression"
+														}
+													}
+												}
+											]
+										},
+										{
+											"name": "Stored procedure1",
+											"type": "SqlServerStoredProcedure",
+											"dependsOn": [
+												{
+													"activity": "Copy data1",
+													"dependencyConditions": [
+														"Succeeded"
+													]
+												}
+											],
+											"policy": {
+												"timeout": "0.12:00:00",
+												"retry": 0,
+												"retryIntervalInSeconds": 30,
+												"secureOutput": false,
+												"secureInput": false
+											},
+											"userProperties": [],
+											"typeProperties": {
+												"storedProcedureName": "[[dbo].[usp_update_watermark]",
+												"storedProcedureParameters": {
+													"TableName": {
+														"value": {
+															"value": "@pipeline().parameters.TableName",
+															"type": "Expression"
+														},
+														"type": "String"
+													}
+												}
+											},
+											"linkedServiceName": {
+												"referenceName": "AzureSqlmaydb",
+												"type": "LinkedServiceReference"
+											}
+										}
+									]
+								},
+								{
+									"value": "FILE",
+									"activities": [
+										{
+											"name": "Execute Pipeline1",
+											"type": "ExecutePipeline",
+											"dependsOn": [],
+											"policy": {
+												"secureInput": false
+											},
+											"userProperties": [],
+											"typeProperties": {
+												"pipeline": {
+													"referenceName": "PL_FILE_VALIDATION",
+													"type": "PipelineReference"
+												},
+												"waitOnCompletion": true,
+												"parameters": {
+													"FileName": {
+														"value": "@split(pipeline().parameters.SourcePath,'/')[1]\n",
+														"type": "Expression"
+													},
+													"SourcePath": {
+														"value": "@split(pipeline().parameters.SourcePath,'/')[0]\n",
+														"type": "Expression"
+													}
+												}
+											}
+										},
+										{
+											"name": "Copy data2",
+											"type": "Copy",
+											"dependsOn": [
+												{
+													"activity": "Execute Pipeline1",
+													"dependencyConditions": [
+														"Succeeded"
+													]
+												}
+											],
+											"policy": {
+												"timeout": "0.12:00:00",
+												"retry": 0,
+												"retryIntervalInSeconds": 30,
+												"secureOutput": false,
+												"secureInput": false
+											},
+											"userProperties": [],
+											"typeProperties": {
+												"source": {
+													"type": "DelimitedTextSource",
+													"storeSettings": {
+														"type": "AzureBlobFSReadSettings",
+														"recursive": true,
+														"enablePartitionDiscovery": false
+													},
+													"formatSettings": {
+														"type": "DelimitedTextReadSettings"
+													}
+												},
+												"sink": {
+													"type": "DelimitedTextSink",
+													"storeSettings": {
+														"type": "AzureBlobFSWriteSettings"
+													},
+													"formatSettings": {
+														"type": "DelimitedTextWriteSettings",
+														"quoteAllText": true,
+														"fileExtension": ".txt"
+													}
+												},
+												"enableStaging": false,
+												"translator": {
+													"type": "TabularTranslator",
+													"typeConversion": true,
+													"typeConversionSettings": {
+														"allowDataTruncation": true,
+														"treatBooleanAsNumber": false
+													}
+												}
+											},
+											"inputs": [
+												{
+													"referenceName": "DelimitedText1",
+													"type": "DatasetReference",
+													"parameters": {
+														"FileName": {
+															"value": "@split(pipeline().parameters.SourcePath,'/')[1]\n",
+															"type": "Expression"
+														},
+														"FolderLocation": "@split(pipeline().parameters.SourcePath,'/')[0]"
+													}
+												}
+											],
+											"outputs": [
+												{
+													"referenceName": "DelimitedText1",
+													"type": "DatasetReference",
+													"parameters": {
+														"FileName": {
+															"value": "@split(pipeline().parameters.TargetPath,'/')[1]\n",
+															"type": "Expression"
+														},
+														"FolderLocation": "@split(pipeline().parameters.TargetPath,'/')[0]"
+													}
+												}
+											]
+										}
+									]
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"parameters": {
+					"TableName": {
+						"type": "string"
+					},
+					"SourceType": {
+						"type": "string"
+					},
+					"SourceQuery": {
+						"type": "string"
+					},
+					"SourcePath": {
+						"type": "string"
+					},
+					"TargetPath": {
+						"type": "string"
+					},
+					"LoadType": {
+						"type": "string"
+					}
+				},
+				"folder": {
+					"name": "day4"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-06-13T09:09:22Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/PL_FILE_VALIDATION')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_PARENT_MAIN')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Lookup1",
+						"type": "Lookup",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": "SELECT *\nFROM meta_adf_pipeline\nWHERE is_active = 1",
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"dataset": {
+								"referenceName": "AzureSqlControlTable",
+								"type": "DatasetReference",
+								"parameters": {}
+							},
+							"firstRowOnly": false
+						}
+					},
+					{
+						"name": "ForEach1",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "Lookup1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('Lookup1').output.value",
+								"type": "Expression"
+							},
+							"batchCount": 10,
+							"activities": [
+								{
+									"name": "PL_CHILD_VALIDATION",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "PL_CHILD_VALIDATION",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"table_name": {
+												"value": "@item().table_name",
+												"type": "Expression"
+											},
+											"source_table": {
+												"value": "@item().source_table",
+												"type": "Expression"
+											}
+										}
+									}
+								},
+								{
+									"name": "PL_CHILD_INGESTION",
+									"type": "ExecutePipeline",
+									"dependsOn": [
+										{
+											"activity": "PL_CHILD_VALIDATION",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "PL_CHILD_INGESTION",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"table_name": {
+												"value": "@item().table_name",
+												"type": "Expression"
+											},
+											"source_table": {
+												"value": "@item().source_table",
+												"type": "Expression"
+											},
+											"sink_path": {
+												"value": "@item().sink_path",
+												"type": "Expression"
+											},
+											"load_type": {
+												"value": "@item().load_type",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-05-26T16:42:06Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/PL_CHILD_VALIDATION')]",
+				"[concat(variables('factoryId'), '/pipelines/PL_CHILD_INGESTION')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/pipeline1')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "Copy data1",
+						"type": "Copy",
+						"state": "Inactive",
+						"onInactiveMarkAs": "Succeeded",
+						"dependsOn": [
+							{
+								"activity": "Set variable1",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"source": {
+								"type": "AzureSqlSource",
+								"sqlReaderQuery": {
+									"value": "@concat(\n'SELECT * FROM Orders WHERE ModifiedDate > ''',\nvariables('v_Watermark'),\n''''\n)",
+									"type": "Expression"
+								},
+								"queryTimeout": "02:00:00",
+								"partitionOption": "None"
+							},
+							"enableStaging": false
+						},
+						"inputs": [
+							{
+								"referenceName": "AzureSqlTable2",
+								"type": "DatasetReference",
+								"parameters": {}
+							}
+						]
+					},
+					{
+						"name": "GET_SECRET",
+						"type": "WebActivity",
+						"dependsOn": [],
+						"policy": {
+							"timeout": "0.12:00:00",
+							"retry": 0,
+							"retryIntervalInSeconds": 30,
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"method": "GET",
+							"headers": {},
+							"url": "https://maykeyvault5657.vault.azure.net/secrets/watermarkdate?api-version=7.4",
+							"authentication": {
+								"type": "MSI",
+								"resource": "https://vault.azure.net"
+							}
+						}
+					},
+					{
+						"name": "Set variable1",
+						"type": "SetVariable",
+						"dependsOn": [
+							{
+								"activity": "GET_SECRET",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"policy": {
+							"secureOutput": false,
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"variableName": "v_Watermark",
+							"value": {
+								"value": "@activity('GET_SECRET').output.value",
+								"type": "Expression"
+							}
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"variables": {
+					"v_Watermark": {
+						"type": "String"
+					}
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-05-30T14:52:22Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/datasets/AzureSqlTable2')]"
+			]
+		},
+		{
+			"name": "[concat(parameters('factoryName'), '/PL_PARENT_MASTER')]",
+			"type": "Microsoft.DataFactory/factories/pipelines",
+			"apiVersion": "2018-06-01",
+			"properties": {
+				"activities": [
+					{
+						"name": "PL_GET_METADATA",
+						"type": "ExecutePipeline",
+						"dependsOn": [],
+						"policy": {
+							"secureInput": false
+						},
+						"userProperties": [],
+						"typeProperties": {
+							"pipeline": {
+								"referenceName": "PL_GET_METADATA",
+								"type": "PipelineReference"
+							},
+							"waitOnCompletion": true,
+							"parameters": {}
+						}
+					},
+					{
+						"name": "ForEach1",
+						"type": "ForEach",
+						"dependsOn": [
+							{
+								"activity": "PL_GET_METADATA",
+								"dependencyConditions": [
+									"Succeeded"
+								]
+							}
+						],
+						"userProperties": [],
+						"typeProperties": {
+							"items": {
+								"value": "@activity('PL_GET_METADATA').output.pipelineReturnValue.metadata",
+								"type": "Expression"
+							},
+							"isSequential": false,
+							"batchCount": 5,
+							"activities": [
+								{
+									"name": "PL_LOGGING",
+									"type": "ExecutePipeline",
+									"dependsOn": [],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "PL_LOGGING",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"RunID": {
+												"value": "@pipeline().RunId",
+												"type": "Expression"
+											},
+											"PipelineName": {
+												"value": "@pipeline().Pipeline",
+												"type": "Expression"
+											},
+											"TableName": {
+												"value": "item().table_name",
+												"type": "Expression"
+											},
+											"Status": "STARTED",
+											"RowsLoaded": "0",
+											"ErrorMessage": "''"
+										}
+									}
+								},
+								{
+									"name": "PL_LOAD_DATA",
+									"type": "ExecutePipeline",
+									"dependsOn": [
+										{
+											"activity": "PL_LOGGING",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "PL_LOAD_DATA",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"TableName": {
+												"value": "@item().table_name\r\n",
+												"type": "Expression"
+											},
+											"SourceType": {
+												"value": "@item().source_type\r\n",
+												"type": "Expression"
+											},
+											"SourceQuery": {
+												"value": "@item().source_query\r\n",
+												"type": "Expression"
+											},
+											"SourcePath": {
+												"value": "@item().source_path\r\n",
+												"type": "Expression"
+											},
+											"TargetPath": {
+												"value": "@item().target_path\r\n",
+												"type": "Expression"
+											},
+											"LoadType": {
+												"value": "@item().load_type\r\n",
+												"type": "Expression"
+											}
+										}
+									}
+								},
+								{
+									"name": "PL_LOGGING1",
+									"type": "ExecutePipeline",
+									"dependsOn": [
+										{
+											"activity": "PL_LOAD_DATA",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "PL_LOGGING",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"RunID": {
+												"value": "@pipeline().RunId",
+												"type": "Expression"
+											},
+											"PipelineName": {
+												"value": "@pipeline().Pipeline",
+												"type": "Expression"
+											},
+											"TableName": {
+												"value": "@item().table_name\r\n",
+												"type": "Expression"
+											},
+											"Status": "SUCCESS",
+											"RowsLoaded": {
+												"value": "@activity('PL_LOAD_DATA').output.rowsCopied",
+												"type": "Expression"
+											},
+											"ErrorMessage": "''"
+										}
+									}
+								},
+								{
+									"name": "PL_LOGGING1_copy1",
+									"type": "ExecutePipeline",
+									"dependsOn": [
+										{
+											"activity": "PL_LOAD_DATA",
+											"dependencyConditions": [
+												"Failed"
+											]
+										}
+									],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "PL_LOGGING",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"RunID": {
+												"value": "@pipeline().RunId",
+												"type": "Expression"
+											},
+											"PipelineName": {
+												"value": "@pipeline().Pipeline",
+												"type": "Expression"
+											},
+											"TableName": {
+												"value": "@item().table_name\r\n",
+												"type": "Expression"
+											},
+											"Status": "FAILED",
+											"RowsLoaded": {
+												"value": "@activity('PL_LOAD_DATA').output.rowsCopied",
+												"type": "Expression"
+											},
+											"ErrorMessage": {
+												"value": "@activity('PL_LOAD_DATA').error.message",
+												"type": "Expression"
+											}
+										}
+									}
+								},
+								{
+									"name": "PL_NOTIFICATION",
+									"type": "ExecutePipeline",
+									"dependsOn": [
+										{
+											"activity": "PL_LOGGING1",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "PL_NOTIFICATION",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"Subject": "ADF Pipeline Passed",
+											"Message": {
+												"value": "@concat(\nitem().table_name,\n' loaded successfully. Rows Loaded: ',\nstring(activity('PL_LOAD_DATA').output.rowsCopied)\n)",
+												"type": "Expression"
+											}
+										}
+									}
+								},
+								{
+									"name": "PL_NOTIFICATION_copy1",
+									"type": "ExecutePipeline",
+									"dependsOn": [
+										{
+											"activity": "PL_LOGGING1_copy1",
+											"dependencyConditions": [
+												"Succeeded"
+											]
+										}
+									],
+									"policy": {
+										"secureInput": false
+									},
+									"userProperties": [],
+									"typeProperties": {
+										"pipeline": {
+											"referenceName": "PL_NOTIFICATION",
+											"type": "PipelineReference"
+										},
+										"waitOnCompletion": true,
+										"parameters": {
+											"Subject": "ADF Pipeline Passed",
+											"Message": {
+												"value": "@concat(\nitem().table_name,\n' load failed. Error: ',\nactivity('PL_LOAD_DATA').error.message\n)",
+												"type": "Expression"
+											}
+										}
+									}
+								}
+							]
+						}
+					}
+				],
+				"policy": {
+					"elapsedTimeMetric": {}
+				},
+				"folder": {
+					"name": "day4"
+				},
+				"annotations": [],
+				"lastPublishTime": "2026-06-14T13:05:47Z"
+			},
+			"dependsOn": [
+				"[concat(variables('factoryId'), '/pipelines/PL_GET_METADATA')]",
+				"[concat(variables('factoryId'), '/pipelines/PL_LOAD_DATA')]"
+			]
+		}
+	]
+}
