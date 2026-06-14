@@ -1,0 +1,125 @@
+{
+	"name": "PL_PARENT_MAIN",
+	"properties": {
+		"activities": [
+			{
+				"name": "Lookup1",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": "SELECT *\nFROM meta_adf_pipeline\nWHERE is_active = 1",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "AzureSqlControlTable",
+						"type": "DatasetReference"
+					},
+					"firstRowOnly": false
+				}
+			},
+			{
+				"name": "ForEach1",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "Lookup1",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('Lookup1').output.value",
+						"type": "Expression"
+					},
+					"batchCount": 10,
+					"activities": [
+						{
+							"name": "PL_CHILD_VALIDATION",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "PL_CHILD_VALIDATION",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"table_name": {
+										"value": "@item().table_name",
+										"type": "Expression"
+									},
+									"source_table": {
+										"value": "@item().source_table",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "PL_CHILD_INGESTION",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "PL_CHILD_VALIDATION",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "PL_CHILD_INGESTION",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"table_name": {
+										"value": "@item().table_name",
+										"type": "Expression"
+									},
+									"source_table": {
+										"value": "@item().source_table",
+										"type": "Expression"
+									},
+									"sink_path": {
+										"value": "@item().sink_path",
+										"type": "Expression"
+									},
+									"load_type": {
+										"value": "@item().load_type",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"annotations": [],
+		"lastPublishTime": "2026-05-26T16:42:06Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

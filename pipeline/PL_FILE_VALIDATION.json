@@ -1,0 +1,88 @@
+{
+	"name": "PL_FILE_VALIDATION",
+	"properties": {
+		"activities": [
+			{
+				"name": "GM_File",
+				"type": "GetMetadata",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"dataset": {
+						"referenceName": "DelimitedText1",
+						"type": "DatasetReference",
+						"parameters": {
+							"FileName": "@pipeline().parameters.FileName",
+							"FolderLocation": "@pipeline().parameters.SourcePath"
+						}
+					},
+					"fieldList": [
+						"exists",
+						"size",
+						"lastModified"
+					],
+					"storeSettings": {
+						"type": "AzureBlobFSReadSettings",
+						"recursive": true,
+						"enablePartitionDiscovery": false
+					},
+					"formatSettings": {
+						"type": "DelimitedTextReadSettings"
+					}
+				}
+			},
+			{
+				"name": "IF_FILE_VALID",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "GM_File",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@and(\nactivity('GM_File').output.exists,\ngreater(\nactivity('GM_File').output.size,\n0\n)\n)",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Fail1",
+							"type": "Fail",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"message": "File Missing Or Empty",
+								"errorCode": "''"
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"FileName": {
+				"type": "string"
+			},
+			"SourcePath": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "day4"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-06-13T09:09:21Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

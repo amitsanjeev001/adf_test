@@ -1,0 +1,64 @@
+{
+	"name": "PL_CHILD_ERROR_HANDLER",
+	"properties": {
+		"activities": [
+			{
+				"name": "sp_adf_error_log",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[sp_adf_error_log]",
+					"storedProcedureParameters": {
+						"error_message": {
+							"value": {
+								"value": "@pipeline().parameters.error_message",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"pipeline_name": {
+							"value": {
+								"value": "@pipeline().parameters.pipeline_name",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"table_name": {
+							"value": {
+								"value": "@pipeline().parameters.table_name",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "AzureSqlmaydb",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"pipeline_name": {
+				"type": "string"
+			},
+			"table_name": {
+				"type": "string"
+			},
+			"error_message": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-05-27T13:58:14Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

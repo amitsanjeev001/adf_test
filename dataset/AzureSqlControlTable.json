@@ -1,0 +1,59 @@
+{
+	"name": "AzureSqlControlTable",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSqlmaydb",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": [
+			{
+				"name": "Id",
+				"type": "int",
+				"precision": 10
+			},
+			{
+				"name": "SourceType",
+				"type": "varchar"
+			},
+			{
+				"name": "SourceName",
+				"type": "varchar"
+			},
+			{
+				"name": "SourceObject",
+				"type": "varchar"
+			},
+			{
+				"name": "SinkType",
+				"type": "varchar"
+			},
+			{
+				"name": "SinkPath",
+				"type": "varchar"
+			},
+			{
+				"name": "LoadType",
+				"type": "varchar"
+			},
+			{
+				"name": "WatermarkColumn",
+				"type": "varchar"
+			},
+			{
+				"name": "WatermarkValue",
+				"type": "varchar"
+			},
+			{
+				"name": "IsActive",
+				"type": "bit"
+			}
+		],
+		"typeProperties": {
+			"schema": "dbo",
+			"table": "ControlTable"
+		}
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

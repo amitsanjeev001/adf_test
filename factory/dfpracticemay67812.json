@@ -1,0 +1,15 @@
+{
+	"name": "dfpracticemay67812",
+	"properties": {
+		"trustModeClaimForMi": {
+			"value": "Disabled",
+			"editable": true
+		}
+	},
+	"location": "centralindia",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "6b045729-bc59-4ddf-83c4-43f39d9f1ab4",
+		"tenantId": "92ee3b08-ddb3-474c-8990-8effc152ce31"
+	}
+}

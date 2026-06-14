@@ -1,0 +1,283 @@
+{
+	"name": "PL_PARENT_MASTER",
+	"properties": {
+		"activities": [
+			{
+				"name": "PL_GET_METADATA",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "PL_GET_METADATA",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true
+				}
+			},
+			{
+				"name": "ForEach1",
+				"type": "ForEach",
+				"dependsOn": [
+					{
+						"activity": "PL_GET_METADATA",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"items": {
+						"value": "@activity('PL_GET_METADATA').output.pipelineReturnValue.metadata",
+						"type": "Expression"
+					},
+					"isSequential": false,
+					"batchCount": 5,
+					"activities": [
+						{
+							"name": "PL_LOGGING",
+							"type": "ExecutePipeline",
+							"dependsOn": [],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "PL_LOGGING",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"RunID": {
+										"value": "@pipeline().RunId",
+										"type": "Expression"
+									},
+									"PipelineName": {
+										"value": "@pipeline().Pipeline",
+										"type": "Expression"
+									},
+									"TableName": {
+										"value": "item().table_name",
+										"type": "Expression"
+									},
+									"Status": "STARTED",
+									"RowsLoaded": "0",
+									"ErrorMessage": "''"
+								}
+							}
+						},
+						{
+							"name": "PL_LOAD_DATA",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "PL_LOGGING",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "PL_LOAD_DATA",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"TableName": {
+										"value": "@item().table_name\r\n",
+										"type": "Expression"
+									},
+									"SourceType": {
+										"value": "@item().source_type\r\n",
+										"type": "Expression"
+									},
+									"SourceQuery": {
+										"value": "@item().source_query\r\n",
+										"type": "Expression"
+									},
+									"SourcePath": {
+										"value": "@item().source_path\r\n",
+										"type": "Expression"
+									},
+									"TargetPath": {
+										"value": "@item().target_path\r\n",
+										"type": "Expression"
+									},
+									"LoadType": {
+										"value": "@item().load_type\r\n",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "PL_LOGGING1",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "PL_LOAD_DATA",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "PL_LOGGING",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"RunID": {
+										"value": "@pipeline().RunId",
+										"type": "Expression"
+									},
+									"PipelineName": {
+										"value": "@pipeline().Pipeline",
+										"type": "Expression"
+									},
+									"TableName": {
+										"value": "@item().table_name\r\n",
+										"type": "Expression"
+									},
+									"Status": "SUCCESS",
+									"RowsLoaded": {
+										"value": "@activity('PL_LOAD_DATA').output.rowsCopied",
+										"type": "Expression"
+									},
+									"ErrorMessage": "''"
+								}
+							}
+						},
+						{
+							"name": "PL_LOGGING1_copy1",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "PL_LOAD_DATA",
+									"dependencyConditions": [
+										"Failed"
+									]
+								}
+							],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "PL_LOGGING",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"RunID": {
+										"value": "@pipeline().RunId",
+										"type": "Expression"
+									},
+									"PipelineName": {
+										"value": "@pipeline().Pipeline",
+										"type": "Expression"
+									},
+									"TableName": {
+										"value": "@item().table_name\r\n",
+										"type": "Expression"
+									},
+									"Status": "FAILED",
+									"RowsLoaded": {
+										"value": "@activity('PL_LOAD_DATA').output.rowsCopied",
+										"type": "Expression"
+									},
+									"ErrorMessage": {
+										"value": "@activity('PL_LOAD_DATA').error.message",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "PL_NOTIFICATION",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "PL_LOGGING1",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "PL_NOTIFICATION",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"Subject": "ADF Pipeline Passed",
+									"Message": {
+										"value": "@concat(\nitem().table_name,\n' loaded successfully. Rows Loaded: ',\nstring(activity('PL_LOAD_DATA').output.rowsCopied)\n)",
+										"type": "Expression"
+									}
+								}
+							}
+						},
+						{
+							"name": "PL_NOTIFICATION_copy1",
+							"type": "ExecutePipeline",
+							"dependsOn": [
+								{
+									"activity": "PL_LOGGING1_copy1",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"pipeline": {
+									"referenceName": "PL_NOTIFICATION",
+									"type": "PipelineReference"
+								},
+								"waitOnCompletion": true,
+								"parameters": {
+									"Subject": "ADF Pipeline Passed",
+									"Message": {
+										"value": "@concat(\nitem().table_name,\n' load failed. Error: ',\nactivity('PL_LOAD_DATA').error.message\n)",
+										"type": "Expression"
+									}
+								}
+							}
+						}
+					]
+				}
+			}
+		],
+		"folder": {
+			"name": "day4"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-06-14T13:05:47Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

@@ -1,0 +1,45 @@
+{
+	"name": "PL_NOTIFICATION",
+	"properties": {
+		"activities": [
+			{
+				"name": "WA_SEND_EMAIL",
+				"type": "WebActivity",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"method": "POST",
+					"headers": {
+						"Content-Type": "application/json"
+					},
+					"url": "https://prod-29.northcentralus.logic.azure.com:443/workflows/c54acd7e00ad432ca2c924ead13ace07/triggers/When_an_HTTP_request_is_received/paths/invoke?api-version=2016-10-01&sp=%2Ftriggers%2FWhen_an_HTTP_request_is_received%2Frun&sv=1.0&sig=_hDHzIQUWN-rq5VZij2_JvGxTk8YYFc09CRetmaWcsY",
+					"body": {
+						"subject": "@{pipeline().parameters.Subject}",
+						"message": "@{pipeline().parameters.Message}"
+					}
+				}
+			}
+		],
+		"parameters": {
+			"Subject": {
+				"type": "string"
+			},
+			"Message": {
+				"type": "string"
+			}
+		},
+		"folder": {
+			"name": "day4"
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-06-13T09:09:21Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

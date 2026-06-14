@@ -1,0 +1,13 @@
+{
+	"name": "AzureSqlTable2_query",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "AzureSqlmaydb",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "AzureSqlTable",
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}

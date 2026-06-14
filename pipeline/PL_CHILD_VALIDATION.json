@@ -1,0 +1,77 @@
+{
+	"name": "PL_CHILD_VALIDATION",
+	"properties": {
+		"activities": [
+			{
+				"name": "LOOKUP_VALIDATE_TABLE",
+				"type": "Lookup",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"sqlReaderQuery": {
+							"value": "SELECT COUNT(*) AS cnt\nFROM INFORMATION_SCHEMA.TABLES\nWHERE TABLE_SCHEMA='dbo'\nAND TABLE_NAME =\nREPLACE('@{pipeline().parameters.source_table}','dbo.','')",
+							"type": "Expression"
+						},
+						"queryTimeout": "02:00:00",
+						"partitionOption": "None"
+					},
+					"dataset": {
+						"referenceName": "AzureSqlControlTable",
+						"type": "DatasetReference"
+					}
+				}
+			},
+			{
+				"name": "If Condition1",
+				"type": "IfCondition",
+				"dependsOn": [
+					{
+						"activity": "LOOKUP_VALIDATE_TABLE",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"userProperties": [],
+				"typeProperties": {
+					"expression": {
+						"value": "@greater(activity('LOOKUP_VALIDATE_TABLE').output.firstRow.cnt,0)",
+						"type": "Expression"
+					},
+					"ifFalseActivities": [
+						{
+							"name": "Fail1",
+							"type": "Fail",
+							"dependsOn": [],
+							"userProperties": [],
+							"typeProperties": {
+								"message": "Source table validation failed",
+								"errorCode": "fail"
+							}
+						}
+					]
+				}
+			}
+		],
+		"parameters": {
+			"table_name": {
+				"type": "string"
+			},
+			"source_table": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-05-26T16:42:06Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

@@ -1,0 +1,94 @@
+{
+	"name": "PL_CHILD_LOGGING",
+	"properties": {
+		"activities": [
+			{
+				"name": "sp_adf_logging",
+				"type": "SqlServerStoredProcedure",
+				"dependsOn": [],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 0,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"storedProcedureName": "[dbo].[sp_adf_logging]",
+					"storedProcedureParameters": {
+						"error_message": {
+							"value": {
+								"value": "@pipeline().parameters.error_message",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"pipeline_name": {
+							"value": {
+								"value": "@pipeline().parameters.pipeline_name",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"rows_loaded": {
+							"value": {
+								"value": "@pipeline().parameters.rows_loaded",
+								"type": "Expression"
+							},
+							"type": "Int32"
+						},
+						"run_id": {
+							"value": {
+								"value": "@pipeline().parameters.run_id",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"status": {
+							"value": {
+								"value": "@pipeline().parameters.status",
+								"type": "Expression"
+							},
+							"type": "String"
+						},
+						"table_name": {
+							"value": {
+								"value": "@pipeline().parameters.table_name",
+								"type": "Expression"
+							},
+							"type": "String"
+						}
+					}
+				},
+				"linkedServiceName": {
+					"referenceName": "AzureSqlmaydb",
+					"type": "LinkedServiceReference"
+				}
+			}
+		],
+		"parameters": {
+			"run_id": {
+				"type": "string"
+			},
+			"pipeline_name": {
+				"type": "string"
+			},
+			"table_name": {
+				"type": "string"
+			},
+			"status": {
+				"type": "string"
+			},
+			"rows_loaded": {
+				"type": "string"
+			},
+			"error_message": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-05-26T16:42:06Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

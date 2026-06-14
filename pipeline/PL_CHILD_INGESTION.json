@@ -1,0 +1,241 @@
+{
+	"name": "PL_CHILD_INGESTION",
+	"properties": {
+		"activities": [
+			{
+				"name": "PL_CHILD_LOGGING",
+				"type": "ExecutePipeline",
+				"dependsOn": [],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "PL_CHILD_LOGGING",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"run_id": {
+							"value": "@pipeline().RunId\n",
+							"type": "Expression"
+						},
+						"pipeline_name": "PL_CHILD_INGESTION\n",
+						"table_name": {
+							"value": "@pipeline().parameters.table_name\n",
+							"type": "Expression"
+						},
+						"status": "STARTED\n",
+						"rows_loaded": "0",
+						"error_message": "NULL"
+					}
+				}
+			},
+			{
+				"name": "COPY_DYNAMIC",
+				"type": "Copy",
+				"dependsOn": [
+					{
+						"activity": "PL_CHILD_LOGGING",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"timeout": "0.12:00:00",
+					"retry": 3,
+					"retryIntervalInSeconds": 30,
+					"secureOutput": false,
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"source": {
+						"type": "AzureSqlSource",
+						"queryTimeout": "02:00:00",
+						"partitionOption": "DynamicRange",
+						"partitionSettings": {
+							"partitionUpperBound": "",
+							"partitionLowerBound": ""
+						}
+					},
+					"sink": {
+						"type": "DelimitedTextSink",
+						"storeSettings": {
+							"type": "AzureBlobFSWriteSettings"
+						},
+						"formatSettings": {
+							"type": "DelimitedTextWriteSettings",
+							"quoteAllText": true,
+							"fileExtension": ".txt"
+						}
+					},
+					"enableStaging": false,
+					"translator": {
+						"type": "TabularTranslator",
+						"typeConversion": true,
+						"typeConversionSettings": {
+							"allowDataTruncation": true,
+							"treatBooleanAsNumber": false
+						}
+					}
+				},
+				"inputs": [
+					{
+						"referenceName": "AzureSqlTable1",
+						"type": "DatasetReference",
+						"parameters": {
+							"TableName": "@pipeline().parameters.source_table"
+						}
+					}
+				],
+				"outputs": [
+					{
+						"referenceName": "DelimitedText1",
+						"type": "DatasetReference",
+						"parameters": {
+							"FileName": "@concat( pipeline().parameters.table_name, '_', formatDateTime(utcNow(),'yyyyMMddHHmmss'), '.csv' )",
+							"FolderLocation": "@pipeline().parameters.sink_path"
+						}
+					}
+				]
+			},
+			{
+				"name": "PL_CHILD_LOGGING2",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "COPY_DYNAMIC",
+						"dependencyConditions": [
+							"Succeeded"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "PL_CHILD_LOGGING",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"run_id": {
+							"value": "@pipeline().RunId\n",
+							"type": "Expression"
+						},
+						"pipeline_name": "PL_CHILD_INGESTION\n",
+						"table_name": {
+							"value": "@pipeline().parameters.table_name\n",
+							"type": "Expression"
+						},
+						"status": "SUCCESS\n",
+						"rows_loaded": {
+							"value": "@activity('COPY_DYNAMIC').output.rowsCopied\n",
+							"type": "Expression"
+						},
+						"error_message": "NULL\n"
+					}
+				}
+			},
+			{
+				"name": "PL_CHILD_LOGGING2_copy1",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "COPY_DYNAMIC",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "PL_CHILD_LOGGING",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"run_id": {
+							"value": "@pipeline().RunId\n",
+							"type": "Expression"
+						},
+						"pipeline_name": "PL_CHILD_INGESTION\n",
+						"table_name": {
+							"value": "@pipeline().parameters.table_name\n",
+							"type": "Expression"
+						},
+						"status": "Failed",
+						"rows_loaded": {
+							"value": "0",
+							"type": "Expression"
+						},
+						"error_message": {
+							"value": "@activity('COPY_DYNAMIC').error.message",
+							"type": "Expression"
+						}
+					}
+				}
+			},
+			{
+				"name": "PL_CHILD_ERROR_HANDLER",
+				"type": "ExecutePipeline",
+				"dependsOn": [
+					{
+						"activity": "COPY_DYNAMIC",
+						"dependencyConditions": [
+							"Failed"
+						]
+					}
+				],
+				"policy": {
+					"secureInput": false
+				},
+				"userProperties": [],
+				"typeProperties": {
+					"pipeline": {
+						"referenceName": "PL_CHILD_ERROR_HANDLER",
+						"type": "PipelineReference"
+					},
+					"waitOnCompletion": true,
+					"parameters": {
+						"pipeline_name": "PL_CHILD_INGESTION",
+						"table_name": {
+							"value": "@pipeline().parameters.table_name",
+							"type": "Expression"
+						},
+						"error_message": {
+							"value": "@activity('COPY_DYNAMIC').error.message",
+							"type": "Expression"
+						}
+					}
+				}
+			}
+		],
+		"parameters": {
+			"table_name": {
+				"type": "string"
+			},
+			"source_table": {
+				"type": "string"
+			},
+			"sink_path": {
+				"type": "string"
+			},
+			"load_type": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"lastPublishTime": "2026-05-30T14:52:21Z"
+	},
+	"type": "Microsoft.DataFactory/factories/pipelines"
+}

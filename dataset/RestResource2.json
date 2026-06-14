@@ -1,0 +1,19 @@
+{
+	"name": "RestResource2",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "RestServicejsonplaceholder",
+			"type": "LinkedServiceReference"
+		},
+		"annotations": [],
+		"type": "RestResource",
+		"typeProperties": {
+			"relativeUrl": {
+				"value": "@if(\nequals(pipeline().parameters.LoadType,'Incremental'),\nconcat(\npipeline().parameters.SourcePath,\n'?',\npipeline().parameters.WatermarkColumn,\n'=',\npipeline().parameters.WatermarkValue\n),\npipeline().parameters.SourcePath\n)",
+				"type": "Expression"
+			}
+		},
+		"schema": []
+	},
+	"type": "Microsoft.DataFactory/factories/datasets"
+}
